@@ -18,7 +18,7 @@ top_30_words = word_counts.most_common(30)
 for word, count in top_30_words:
     print(f'{word}: {count}')
 
-csv_file_path = 'C:/Users/saval/PycharmProjects/pythonProject/SE/HIT137_SN_Assignment2/top30.csv'
+csv_file_path = '/SE/HIT137_SN_ASSIGNMENT2/Q1/top30.csv'
 with open(csv_file_path, 'w', newline='', encoding='utf-8') as csv_file:
     csv_writer = csv.writer(csv_file)
     csv_writer.writerow(['Word', 'Count'])
