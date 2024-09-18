@@ -1,65 +1,51 @@
 import spacy
-from collections import Counter
 
-# Load SpaCy models
-nlp_sci = spacy.load("en_core_sci_sm")  # Small biomedical model
-nlp_bc5cdr = spacy.load("en_ner_bc5cdr_md")  # BC5CDR NER model for diseases and drugs
+def ner_with_spacy(text_file, model_name):
+    nlp = spacy.load(model_name)
+    
+    with open(text_file, 'r', encoding='utf-8') as file:
+        text = file.read()
+    
+    doc = nlp(text)
+    entities = [(ent.text, ent.label_) for ent in doc.ents]
+    
+    return entities
 
+# Example usage with scispaCy models
+en_core_sci_sm_entities = ner_with_spacy('/path/to/output/textfile.txt', 'en_core_sci_sm')
+en_ner_bc5cdr_md_entities = ner_with_spacy('/path/to/output/textfile.txt', 'en_ner_bc5cdr_md')
 
-# Function to extract entities from a model
-def extract_entities(text, model):
-    doc = model(text)
-    diseases = [ent.text for ent in doc.ents if ent.label_ == 'DISEASE']
-    drugs = [ent.text for ent in doc.ents if ent.label_ == 'CHEMICAL']
-    return diseases, drugs
+# For BioBert, use Hugging Face transformers
+from transformers import AutoModelForTokenClassification, AutoTokenizer
+from transformers import pipeline
 
+def ner_with_biobert(text_file, model_name='dmis-lab/biobert-base-cased-v1.1'):
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForTokenClassification.from_pretrained(model_name)
+    nlp_pipeline = pipeline('ner', model=model, tokenizer=tokenizer)
+    
+    with open(text_file, 'r', encoding='utf-8') as file:
+        text = file.read()
+    
+    entities = nlp_pipeline(text)
+    return entities
 
-# Load the file and read the content
-txt_path = 'text1.txt'  # Replace with actual file path
-with open(txt_path, 'r') as file:
-    text = file.read()
+# Example usage
+biobert_entities = ner_with_biobert('/path/to/output/textfile.txt')
 
-# Process the text using each model
-diseases_sci, drugs_sci = extract_entities(text, nlp_sci)
-diseases_bc5cdr, drugs_bc5cdr = extract_entities(text, nlp_bc5cdr)
+# Compare entities from the models
+def compare_entities(spacy_entities, biobert_entities):
+    spacy_set = set([ent[0] for ent in spacy_entities])
+    biobert_set = set([ent['word'] for ent in biobert_entities])
+    
+    overlap = spacy_set & biobert_set
+    spacy_only = spacy_set - biobert_set
+    biobert_only = biobert_set - spacy_set
+    
+    return overlap, spacy_only, biobert_only
 
-# Get total entities
-total_diseases_sci = len(diseases_sci)
-total_drugs_sci = len(drugs_sci)
-total_diseases_bc5cdr = len(diseases_bc5cdr)
-total_drugs_bc5cdr = len(drugs_bc5cdr)
-
-# Compare entities
-common_diseases = set(diseases_sci).intersection(set(diseases_bc5cdr))
-common_drugs = set(drugs_sci).intersection(set(drugs_bc5cdr))
-
-# Print the comparison results
-print(f"Total diseases detected by en_core_sci_sm: {total_diseases_sci}")
-print(f"Total drugs detected by en_core_sci_sm: {total_drugs_sci}")
-print(f"Total diseases detected by en_ner_bc5cdr_md: {total_diseases_bc5cdr}")
-print(f"Total drugs detected by en_ner_bc5cdr_md: {total_drugs_bc5cdr}")
-
-print("\nMost common diseases detected by both models:")
-print(common_diseases)
-
-print("\nMost common drugs detected by both models:")
-print(common_drugs)
-
-# Find differences between models
-diff_diseases_bc5cdr_sci = set(diseases_bc5cdr).difference(set(diseases_sci))
-diff_drugs_bc5cdr_sci = set(drugs_bc5cdr).difference(set(drugs_sci))
-
-print(f"\nDiseases detected by en_ner_bc5cdr_md but not by en_core_sci_sm: {diff_diseases_bc5cdr_sci}")
-print(f"Drugs detected by en_ner_bc5cdr_md but not by en_core_sci_sm: {diff_drugs_bc5cdr_sci}")
-
-# Most common words among diseases and drugs
-most_common_diseases_sci = Counter(diseases_sci).most_common(10)
-most_common_drugs_sci = Counter(drugs_sci).most_common(10)
-
-print("\nMost common diseases detected by en_core_sci_sm:")
-print(most_common_diseases_sci)
-
-print("\nMost common drugs detected by en_core_sci_sm:")
-print(most_common_drugs_sci)
-
-# Similarly, you can calculate most common entities for the other model as well
+# Example comparison
+overlap, spacy_only, biobert_only = compare_entities(en_ner_bc5cdr_md_entities, biobert_entities)
+print("Overlap:", overlap)
+print("SpaCy only:", spacy_only)
+print("BioBert only:",biobert_only)
